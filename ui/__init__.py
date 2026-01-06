@@ -1,3 +1,4 @@
+# UI components package for Asset Maker
 from .main_window import MainWindow
 from .video_preview_widget import VideoPreviewWidget
 from .image_preview_widget import ImagePreviewWidget

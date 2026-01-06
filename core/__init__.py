@@ -1,3 +1,5 @@
+# 核心模块，提供GUI服务
+
 from .export_service import ExportService, ExportWorker
 from .logger_setup import (
     setup_gui_logger,

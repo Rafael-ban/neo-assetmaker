@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
 
-# 尺寸配置
 SCREEN_WIDTH, SCREEN_HEIGHT = 360, 640
 LOGO_WIDTH, LOGO_HEIGHT = 256, 256
 VIDEO_WIDTH, VIDEO_HEIGHT = 384, 640
@@ -68,7 +67,6 @@ class MainWindow(QMainWindow):
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # 左侧面板
         self.left_panel = QWidget()
         self.left_panel.setMinimumWidth(350)
         self.left_panel.setMaximumWidth(500)
@@ -82,7 +80,6 @@ class MainWindow(QMainWindow):
             QTabBar::tab:selected { background-color: #2d2d2d; color: #fff; }
         """)
 
-        # 占位标签页
         self.operator_tab = QWidget()
         self.standby_tab = QWidget()
         self.tab_widget.addTab(self.operator_tab, "运营员素材制作")
@@ -90,7 +87,6 @@ class MainWindow(QMainWindow):
 
         left_layout.addWidget(self.tab_widget)
 
-        # 右侧预览区
         self.preview_container = QWidget()
         preview_layout = QVBoxLayout(self.preview_container)
         preview_layout.setContentsMargins(0, 0, 0, 0)
