@@ -27,27 +27,27 @@ NUITKA_ARGS = [
 ]
 
 def check_requirements():
-    print("检查打包环境...")
+    print("Checking build environment...")
 
     try:
         result = subprocess.run(
             [sys.executable, "-m", "nuitka", "--version"],
             capture_output=True, text=True
         )
-        print(f"Nuitka 版本: {result.stdout.strip()}")
+        print(f"Nuitka version: {result.stdout.strip()}")
     except Exception as e:
-        print(f"错误: Nuitka 未安装，请运行: pip install nuitka")
+        print(f"Error: Nuitka not installed, run: pip install nuitka")
         return False
 
     if not os.path.exists(MAIN_SCRIPT):
-        print(f"错误: 主脚本 {MAIN_SCRIPT} 不存在")
-        print("正在创建入口脚本...")
+        print(f"Error: Main script {MAIN_SCRIPT} not found")
+        print("Creating entry script...")
         create_entry_script()
 
     if os.path.exists("ffmpeg.exe"):
-        print("ffmpeg.exe: 已找到")
+        print("ffmpeg.exe: found")
     else:
-        print("警告: ffmpeg.exe 未找到，视频导出功能可能不可用")
+        print("Warning: ffmpeg.exe not found, video export may not work")
         for arg in NUITKA_ARGS[:]:
             if "ffmpeg" in arg:
                 NUITKA_ARGS.remove(arg)
@@ -72,17 +72,17 @@ if __name__ == "__main__":
 '''
     with open(MAIN_SCRIPT, 'w', encoding='utf-8') as f:
         f.write(content)
-    print(f"已创建入口脚本: {MAIN_SCRIPT}")
+    print(f"Created entry script: {MAIN_SCRIPT}")
 
 def build():
     print("\n" + "=" * 50)
-    print("开始 Nuitka 打包...")
+    print("Starting Nuitka build...")
     print("=" * 50 + "\n")
 
     if ICON_FILE and os.path.exists(ICON_FILE):
         NUITKA_ARGS.insert(-1, f"--windows-icon-from-ico={ICON_FILE}")
 
-    print("执行命令:")
+    print("Command:")
     print(" ".join(NUITKA_ARGS))
     print()
 
@@ -90,12 +90,12 @@ def build():
 
     if result.returncode == 0:
         print("\n" + "=" * 50)
-        print("打包成功!")
-        print(f"输出目录: dist/")
+        print("Build successful!")
+        print(f"Output: dist/")
         print("=" * 50)
     else:
         print("\n" + "=" * 50)
-        print("打包失败!")
+        print("Build failed!")
         print("=" * 50)
         return False
 
@@ -105,7 +105,7 @@ def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
     print("=" * 50)
-    print(f"  {PROJECT_NAME} - Nuitka 打包工具")
+    print(f"  {PROJECT_NAME} - Nuitka Build Tool")
     print("=" * 50)
 
     if not check_requirements():
