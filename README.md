@@ -1,0 +1,228 @@
+# 明日方舟通行证素材制作器
+
+Arknights Pass Material Maker - 用于制作明日方舟电子通行证2.0素材的图形化工具。
+
+## 项目简介
+
+本工具融合了 ep_material_maker 和 decompiled 两个项目的功能，提供完整的通行证素材制作解决方案。
+
+主要功能：
+- 可视化配置编辑界面
+- 实时JSON配置预览
+- 视频预览与裁剪
+- 时间轴控制
+- 配置验证
+- 老素材格式批量转换
+
+## 系统要求
+
+- Python 3.10+
+- Windows / macOS / Linux
+
+## 安装说明
+
+### 1. 克隆或下载项目
+
+```bash
+git clone <repository-url>
+cd arknights_pass_maker
+```
+
+### 2. 创建虚拟环境（推荐）
+
+```bash
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# macOS/Linux
+source .venv/bin/activate
+```
+
+### 3. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. 运行程序
+
+```bash
+python main.py
+```
+
+## 依赖列表
+
+- PyQt6 >= 6.5.0 - GUI框架
+- opencv-python >= 4.8.0 - 视频处理
+- Pillow >= 10.0.0 - 图片处理
+- numpy >= 1.24.0 - 数组运算
+- jsonschema >= 4.17.0 - JSON验证
+
+## 使用方法
+
+### 创建新项目
+
+1. 文件 -> 新建项目
+2. 选择项目目录
+3. 在左侧配置面板中填写各项配置
+4. 文件 -> 保存
+
+### 打开现有项目
+
+1. 文件 -> 打开项目
+2. 选择 epconfig.json 文件
+
+### 配置说明
+
+左侧配置面板包含四个选项卡：
+
+**基本信息**
+- UUID: 唯一标识符
+- 名称: 素材名称
+- 描述: 素材描述
+- 分辨率: 360x640, 480x854, 720x1080
+- 图标: 可选的图标文件
+
+**视频配置**
+- 循环视频: 必选，循环播放的视频文件
+- 入场视频: 可选，首次播放的入场动画
+
+**过渡效果**
+- 进入过渡: 视频开始时的过渡效果
+- 循环过渡: 循环播放时的过渡效果
+- 支持类型: none, fade, slide_down, slide_up, slide_left, slide_right
+
+**叠加UI**
+- 类型: none, arknights, image
+- 明日方舟模板: 干员名称、代号、条码等
+- 图片叠加: 自定义叠加图片
+
+### 老素材转换
+
+工具 -> 批量转换老素材
+
+支持将老版本素材格式（epconfig.txt + logo.argb + overlay.argb + loop.mp4）转换为新格式。
+
+老素材文件结构：
+- epconfig.txt - 文本配置文件
+- logo.argb - ARGB原始图像数据
+- overlay.argb - 音频文件（实际是MP3格式）
+- loop.mp4 - 循环视频
+
+## 配置文件格式
+
+配置文件为JSON格式（epconfig.json），示例：
+
+```json
+{
+  "version": 1,
+  "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "name": "示例素材",
+  "description": "素材描述",
+  "screen": "360x640",
+  "icon": "icon.png",
+  "loop": {
+    "file": "loop.mp4"
+  },
+  "intro": {
+    "enabled": false,
+    "file": "",
+    "duration": 5000000
+  },
+  "transition_in": {
+    "type": "fade",
+    "options": {
+      "duration": 500000,
+      "background_color": "#000000"
+    }
+  },
+  "transition_loop": {
+    "type": "none"
+  },
+  "overlay": {
+    "type": "arknights",
+    "arknights_options": {
+      "appear_time": 100000,
+      "operator_name": "OPERATOR",
+      "operator_code": "ARKNIGHTS - UNK0",
+      "barcode_text": "OPERATOR - ARKNIGHTS",
+      "aux_text": "Operator of Rhodes Island",
+      "staff_text": "STAFF",
+      "color": "#000000"
+    }
+  }
+}
+```
+
+## 目录结构
+
+```
+arknights_pass_maker/
+├── main.py                 # 应用入口
+├── requirements.txt        # 依赖列表
+├── README.md              # 说明文档
+├── config/                # 配置模块
+│   ├── constants.py       # 常量定义
+│   └── epconfig.py        # 配置数据模型
+├── core/                  # 核心业务逻辑
+│   ├── validator.py       # 配置验证器
+│   ├── video_processor.py # 视频处理
+│   ├── image_processor.py # 图片处理
+│   ├── export_service.py  # 导出服务
+│   └── legacy_converter.py # 老素材转换器
+├── gui/                   # 图形界面
+│   ├── main_window.py     # 主窗口
+│   └── widgets/           # UI组件
+│       ├── config_panel.py    # 配置面板
+│       ├── video_preview.py   # 视频预览
+│       ├── timeline.py        # 时间轴
+│       └── json_preview.py    # JSON预览
+├── utils/                 # 工具函数
+│   ├── logger.py          # 日志系统
+│   ├── file_utils.py      # 文件操作
+│   └── color_utils.py     # 颜色处理
+├── resources/             # 资源文件
+│   └── icons/            # 图标
+└── logs/                  # 日志文件
+```
+
+## 日志
+
+程序运行时会在 logs/ 目录下生成日志文件，格式为 app_YYYYMMDD.log。
+
+日志级别：
+- DEBUG: 详细调试信息（仅文件）
+- INFO: 一般信息（控制台和文件）
+- WARNING: 警告信息
+- ERROR: 错误信息
+
+## 开发说明
+
+### 技术栈
+
+- PyQt6: GUI框架
+- OpenCV: 视频读取和处理
+- Pillow: 图片处理
+- dataclass: 配置数据模型
+
+### 代码结构
+
+- config/ - 配置相关代码
+- core/ - 核心业务逻辑
+- gui/ - 图形界面
+- utils/ - 通用工具
+
+## 许可证
+
+本项目仅供学习和研究使用。
+
+## 更新日志
+
+### v1.0.0
+- 初始版本
+- 合并 ep_material_maker 和 decompiled 项目
+- 三栏布局：配置面板 + 视频预览 + JSON预览
+- 配置验证功能
+- 老素材批量转换功能

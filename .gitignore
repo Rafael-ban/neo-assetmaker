@@ -1,19 +1,19 @@
-# Python
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-env/
-venv/
-.venv/
-ENV/
 
-# Build outputs
+# Distribution
+*.egg-info/
 dist/
 build/
-*.spec
-*.exe
 
 # IDE
 .vscode/
@@ -22,11 +22,16 @@ build/
 *.swo
 
 # Logs
+logs/
 *.log
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Large binary files (downloaded in CI)
+# Large executables
 ffmpeg.exe
+*.exe
+
+# Test data
+test/

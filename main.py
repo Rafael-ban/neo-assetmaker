@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""
+明日方舟通行证素材制作器
+Arknights Pass Material Maker
+"""
+import sys
+import os
+import logging
+
+# 添加项目根目录到路径
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def check_dependencies():
+    """检查必要的依赖是否已安装"""
+    missing = []
+
+    try:
+        from PyQt6.QtWidgets import QApplication
+    except ImportError:
+        missing.append("PyQt6")
+
+    try:
+        import cv2
+    except ImportError:
+        missing.append("opencv-python")
+
+    try:
+        from PIL import Image
+    except ImportError:
+        missing.append("Pillow")
+
+    try:
+        import numpy
+    except ImportError:
+        missing.append("numpy")
+
+    if missing:
+        print("缺少以下依赖:")
+        for dep in missing:
+            print(f"  - {dep}")
+        print("\n请运行以下命令安装:")
+        print(f"  pip install {' '.join(missing)}")
+        sys.exit(1)
+
+
+def main():
+    """应用程序入口"""
+    check_dependencies()
+
+    # 初始化日志系统
+    from utils.logger import setup_logger, cleanup_old_logs
+    setup_logger()
+    cleanup_old_logs(days=30)
+
+    logger = logging.getLogger(__name__)
+    logger.info("=" * 50)
+    logger.info("明日方舟通行证素材制作器 启动")
+    logger.info("=" * 50)
+
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtGui import QFont, QIcon
+    from PyQt6.QtCore import Qt
+
+    from gui.main_window import MainWindow
+
+    # 创建应用程序
+    app = QApplication(sys.argv)
+    app.setApplicationName("明日方舟通行证素材制作器")
+    app.setApplicationVersion("1.0.0")
+    app.setOrganizationName("ArknightsPassMaker")
+
+    # 设置应用程序图标
+    icon_path = os.path.join(
+        os.path.dirname(__file__), 'resources', 'icons', 'favicon.ico'
+    )
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+
+    # Windows 平台设置中文字体
+    if sys.platform == "win32":
+        font = QFont("Microsoft YaHei", 9)
+        app.setFont(font)
+
+    # 创建并显示主窗口
+    logger.info("创建主窗口...")
+    window = MainWindow()
+    window.show()
+
+    logger.info("应用程序启动完成")
+
+    # 运行应用程序
+    exit_code = app.exec()
+    logger.info(f"应用程序退出，退出码: {exit_code}")
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

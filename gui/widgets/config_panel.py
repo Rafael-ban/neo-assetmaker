@@ -1,0 +1,520 @@
+"""
+配置面板 - 左侧配置选项卡容器
+"""
+from typing import Optional
+
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QTabWidget, QScrollArea,
+    QGroupBox, QFormLayout, QLineEdit, QTextEdit,
+    QComboBox, QSpinBox, QCheckBox, QPushButton,
+    QHBoxLayout, QLabel, QFileDialog, QColorDialog
+)
+from PyQt6.QtCore import pyqtSignal, Qt
+
+from config.epconfig import (
+    EPConfig, ScreenType, TransitionType, OverlayType,
+    Transition, TransitionOptions, IntroConfig,
+    Overlay, ArknightsOverlayOptions, ImageOverlayOptions
+)
+from config.constants import (
+    RESOLUTION_SPECS, TRANSITION_TYPES, OVERLAY_TYPES,
+    OPERATOR_CLASS_PRESETS, DEFAULT_TRANSITION_DURATION,
+    microseconds_to_seconds, seconds_to_microseconds
+)
+
+
+class ConfigPanel(QWidget):
+    """配置面板"""
+
+    config_changed = pyqtSignal()  # 配置变更信号
+    video_file_selected = pyqtSignal(str)  # 视频文件选择信号
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self._config: Optional[EPConfig] = None
+        self._base_dir: str = ""
+        self._updating = False  # 防止循环更新
+
+        self._setup_ui()
+        self._connect_signals()
+
+    def _setup_ui(self):
+        """设置UI"""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(0)
+
+        # 选项卡
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
+
+        # 基本信息选项卡
+        self.tab_basic = self._create_basic_tab()
+        self.tab_widget.addTab(self.tab_basic, "基本信息")
+
+        # 视频配置选项卡
+        self.tab_video = self._create_video_tab()
+        self.tab_widget.addTab(self.tab_video, "视频配置")
+
+        # 过渡效果选项卡
+        self.tab_transition = self._create_transition_tab()
+        self.tab_widget.addTab(self.tab_transition, "过渡效果")
+
+        # 叠加UI选项卡
+        self.tab_overlay = self._create_overlay_tab()
+        self.tab_widget.addTab(self.tab_overlay, "叠加UI")
+
+        self.setMinimumWidth(350)
+        self.setMaximumWidth(450)
+
+    def _create_scroll_area(self, widget: QWidget) -> QScrollArea:
+        """创建滚动区域"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(widget)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        # 设置内部widget的边距
+        widget.layout().setContentsMargins(8, 8, 8, 8)
+        return scroll
+
+    def _create_basic_tab(self) -> QWidget:
+        """创建基本信息选项卡"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # UUID
+        group_uuid = QGroupBox("UUID")
+        uuid_layout = QHBoxLayout(group_uuid)
+        self.edit_uuid = QLineEdit()
+        self.edit_uuid.setReadOnly(True)
+        uuid_layout.addWidget(self.edit_uuid)
+        self.btn_new_uuid = QPushButton("生成新UUID")
+        uuid_layout.addWidget(self.btn_new_uuid)
+        layout.addWidget(group_uuid)
+
+        # 基本信息
+        group_info = QGroupBox("基本信息")
+        info_layout = QFormLayout(group_info)
+
+        self.edit_name = QLineEdit()
+        self.edit_name.setPlaceholderText("素材名称")
+        info_layout.addRow("名称:", self.edit_name)
+
+        self.edit_description = QTextEdit()
+        self.edit_description.setMaximumHeight(80)
+        self.edit_description.setPlaceholderText("素材描述")
+        info_layout.addRow("描述:", self.edit_description)
+
+        self.combo_screen = QComboBox()
+        for screen in RESOLUTION_SPECS:
+            desc = RESOLUTION_SPECS[screen].get("description", screen)
+            self.combo_screen.addItem(desc, screen)
+        info_layout.addRow("分辨率:", self.combo_screen)
+
+        layout.addWidget(group_info)
+
+        # 图标
+        group_icon = QGroupBox("图标")
+        icon_layout = QHBoxLayout(group_icon)
+        self.edit_icon = QLineEdit()
+        self.edit_icon.setPlaceholderText("图标文件路径")
+        icon_layout.addWidget(self.edit_icon)
+        self.btn_browse_icon = QPushButton("浏览...")
+        icon_layout.addWidget(self.btn_browse_icon)
+        layout.addWidget(group_icon)
+
+        layout.addStretch()
+        return self._create_scroll_area(widget)
+
+    def _create_video_tab(self) -> QWidget:
+        """创建视频配置选项卡"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # 循环视频
+        group_loop = QGroupBox("循环视频 (必选)")
+        loop_layout = QHBoxLayout(group_loop)
+        self.edit_loop_file = QLineEdit()
+        self.edit_loop_file.setPlaceholderText("loop.mp4")
+        loop_layout.addWidget(self.edit_loop_file)
+        self.btn_browse_loop = QPushButton("浏览...")
+        loop_layout.addWidget(self.btn_browse_loop)
+        layout.addWidget(group_loop)
+
+        # 入场视频
+        group_intro = QGroupBox("入场视频 (可选)")
+        intro_layout = QFormLayout(group_intro)
+
+        self.check_intro_enabled = QCheckBox("启用入场动画")
+        intro_layout.addRow(self.check_intro_enabled)
+
+        intro_file_layout = QHBoxLayout()
+        self.edit_intro_file = QLineEdit()
+        self.edit_intro_file.setPlaceholderText("intro.mp4")
+        intro_file_layout.addWidget(self.edit_intro_file)
+        self.btn_browse_intro = QPushButton("浏览...")
+        intro_file_layout.addWidget(self.btn_browse_intro)
+        intro_layout.addRow("文件:", intro_file_layout)
+
+        self.spin_intro_duration = QSpinBox()
+        self.spin_intro_duration.setRange(0, 30000000)
+        self.spin_intro_duration.setSingleStep(100000)
+        self.spin_intro_duration.setSuffix(" 微秒")
+        self.spin_intro_duration.setValue(5000000)
+        intro_layout.addRow("时长:", self.spin_intro_duration)
+
+        self.label_intro_seconds = QLabel("= 5.0 秒")
+        intro_layout.addRow("", self.label_intro_seconds)
+
+        layout.addWidget(group_intro)
+
+        layout.addStretch()
+        return self._create_scroll_area(widget)
+
+    def _create_transition_tab(self) -> QWidget:
+        """创建过渡效果选项卡"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # 进入过渡
+        group_in = QGroupBox("进入过渡 (transition_in)")
+        in_layout = QFormLayout(group_in)
+
+        self.combo_trans_in_type = QComboBox()
+        for t in TRANSITION_TYPES:
+            self.combo_trans_in_type.addItem(t, t)
+        in_layout.addRow("类型:", self.combo_trans_in_type)
+
+        self.spin_trans_in_duration = QSpinBox()
+        self.spin_trans_in_duration.setRange(0, 5000000)
+        self.spin_trans_in_duration.setSingleStep(50000)
+        self.spin_trans_in_duration.setValue(500000)
+        in_layout.addRow("时长(微秒):", self.spin_trans_in_duration)
+
+        color_layout_in = QHBoxLayout()
+        self.edit_trans_in_color = QLineEdit("#000000")
+        color_layout_in.addWidget(self.edit_trans_in_color)
+        self.btn_trans_in_color = QPushButton("选择颜色")
+        color_layout_in.addWidget(self.btn_trans_in_color)
+        in_layout.addRow("背景色:", color_layout_in)
+
+        layout.addWidget(group_in)
+
+        # 循环过渡
+        group_loop = QGroupBox("循环过渡 (transition_loop)")
+        loop_layout = QFormLayout(group_loop)
+
+        self.combo_trans_loop_type = QComboBox()
+        for t in TRANSITION_TYPES:
+            self.combo_trans_loop_type.addItem(t, t)
+        loop_layout.addRow("类型:", self.combo_trans_loop_type)
+
+        self.spin_trans_loop_duration = QSpinBox()
+        self.spin_trans_loop_duration.setRange(0, 5000000)
+        self.spin_trans_loop_duration.setSingleStep(50000)
+        self.spin_trans_loop_duration.setValue(500000)
+        loop_layout.addRow("时长(微秒):", self.spin_trans_loop_duration)
+
+        color_layout_loop = QHBoxLayout()
+        self.edit_trans_loop_color = QLineEdit("#000000")
+        color_layout_loop.addWidget(self.edit_trans_loop_color)
+        self.btn_trans_loop_color = QPushButton("选择颜色")
+        color_layout_loop.addWidget(self.btn_trans_loop_color)
+        loop_layout.addRow("背景色:", color_layout_loop)
+
+        layout.addWidget(group_loop)
+
+        layout.addStretch()
+        return self._create_scroll_area(widget)
+
+    def _create_overlay_tab(self) -> QWidget:
+        """创建叠加UI选项卡"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        # 叠加类型
+        group_type = QGroupBox("叠加类型")
+        type_layout = QFormLayout(group_type)
+
+        self.combo_overlay_type = QComboBox()
+        for t in OVERLAY_TYPES:
+            self.combo_overlay_type.addItem(t, t)
+        type_layout.addRow("类型:", self.combo_overlay_type)
+
+        layout.addWidget(group_type)
+
+        # Arknights选项
+        self.group_arknights = QGroupBox("明日方舟模板选项")
+        ark_layout = QFormLayout(self.group_arknights)
+
+        self.spin_ark_appear = QSpinBox()
+        self.spin_ark_appear.setRange(0, 5000000)
+        self.spin_ark_appear.setValue(100000)
+        ark_layout.addRow("出现时间(微秒):", self.spin_ark_appear)
+
+        self.edit_ark_name = QLineEdit("OPERATOR")
+        ark_layout.addRow("干员名称:", self.edit_ark_name)
+
+        self.edit_ark_code = QLineEdit("ARKNIGHTS - UNK0")
+        ark_layout.addRow("干员代号:", self.edit_ark_code)
+
+        self.edit_ark_barcode = QLineEdit("OPERATOR - ARKNIGHTS")
+        ark_layout.addRow("条码文本:", self.edit_ark_barcode)
+
+        self.edit_ark_aux = QTextEdit()
+        self.edit_ark_aux.setMaximumHeight(60)
+        self.edit_ark_aux.setPlainText("Operator of Rhodes Island")
+        ark_layout.addRow("辅助文本:", self.edit_ark_aux)
+
+        self.edit_ark_staff = QLineEdit("STAFF")
+        ark_layout.addRow("STAFF文本:", self.edit_ark_staff)
+
+        color_layout = QHBoxLayout()
+        self.edit_ark_color = QLineEdit("#000000")
+        color_layout.addWidget(self.edit_ark_color)
+        self.btn_ark_color = QPushButton("选择颜色")
+        color_layout.addWidget(self.btn_ark_color)
+        ark_layout.addRow("主题颜色:", color_layout)
+
+        layout.addWidget(self.group_arknights)
+
+        layout.addStretch()
+        return self._create_scroll_area(widget)
+
+    def _connect_signals(self):
+        """连接信号"""
+        # 基本信息
+        self.btn_new_uuid.clicked.connect(self._on_new_uuid)
+        self.edit_name.textChanged.connect(self._on_config_changed)
+        self.edit_description.textChanged.connect(self._on_config_changed)
+        self.combo_screen.currentIndexChanged.connect(self._on_config_changed)
+        self.edit_icon.textChanged.connect(self._on_config_changed)
+        self.btn_browse_icon.clicked.connect(self._browse_icon)
+
+        # 视频配置
+        self.edit_loop_file.textChanged.connect(self._on_config_changed)
+        self.btn_browse_loop.clicked.connect(self._browse_loop)
+        self.check_intro_enabled.stateChanged.connect(self._on_config_changed)
+        self.edit_intro_file.textChanged.connect(self._on_config_changed)
+        self.btn_browse_intro.clicked.connect(self._browse_intro)
+        self.spin_intro_duration.valueChanged.connect(self._on_intro_duration_changed)
+
+        # 过渡效果
+        self.combo_trans_in_type.currentIndexChanged.connect(self._on_config_changed)
+        self.spin_trans_in_duration.valueChanged.connect(self._on_config_changed)
+        self.edit_trans_in_color.textChanged.connect(self._on_config_changed)
+        self.btn_trans_in_color.clicked.connect(lambda: self._pick_color(self.edit_trans_in_color))
+
+        self.combo_trans_loop_type.currentIndexChanged.connect(self._on_config_changed)
+        self.spin_trans_loop_duration.valueChanged.connect(self._on_config_changed)
+        self.edit_trans_loop_color.textChanged.connect(self._on_config_changed)
+        self.btn_trans_loop_color.clicked.connect(lambda: self._pick_color(self.edit_trans_loop_color))
+
+        # 叠加UI
+        self.combo_overlay_type.currentIndexChanged.connect(self._on_overlay_type_changed)
+        self.spin_ark_appear.valueChanged.connect(self._on_config_changed)
+        self.edit_ark_name.textChanged.connect(self._on_config_changed)
+        self.edit_ark_code.textChanged.connect(self._on_config_changed)
+        self.edit_ark_barcode.textChanged.connect(self._on_config_changed)
+        self.edit_ark_aux.textChanged.connect(self._on_config_changed)
+        self.edit_ark_staff.textChanged.connect(self._on_config_changed)
+        self.edit_ark_color.textChanged.connect(self._on_config_changed)
+        self.btn_ark_color.clicked.connect(lambda: self._pick_color(self.edit_ark_color))
+
+    def set_config(self, config: EPConfig, base_dir: str = ""):
+        """设置配置"""
+        self._config = config
+        self._base_dir = base_dir
+        self._updating = True
+
+        try:
+            # 基本信息
+            self.edit_uuid.setText(config.uuid)
+            self.edit_name.setText(config.name)
+            self.edit_description.setPlainText(config.description)
+            self.edit_icon.setText(config.icon)
+
+            # 分辨率
+            index = self.combo_screen.findData(config.screen.value)
+            if index >= 0:
+                self.combo_screen.setCurrentIndex(index)
+
+            # 循环视频
+            self.edit_loop_file.setText(config.loop.file)
+
+            # 入场视频
+            self.check_intro_enabled.setChecked(config.intro.enabled)
+            self.edit_intro_file.setText(config.intro.file)
+            self.spin_intro_duration.setValue(config.intro.duration)
+
+            # 过渡效果 - 进入
+            if config.transition_in.type != TransitionType.NONE:
+                index = self.combo_trans_in_type.findData(config.transition_in.type.value)
+                if index >= 0:
+                    self.combo_trans_in_type.setCurrentIndex(index)
+                if config.transition_in.options:
+                    self.spin_trans_in_duration.setValue(config.transition_in.options.duration)
+                    self.edit_trans_in_color.setText(config.transition_in.options.background_color)
+
+            # 过渡效果 - 循环
+            if config.transition_loop.type != TransitionType.NONE:
+                index = self.combo_trans_loop_type.findData(config.transition_loop.type.value)
+                if index >= 0:
+                    self.combo_trans_loop_type.setCurrentIndex(index)
+                if config.transition_loop.options:
+                    self.spin_trans_loop_duration.setValue(config.transition_loop.options.duration)
+                    self.edit_trans_loop_color.setText(config.transition_loop.options.background_color)
+
+            # 叠加UI
+            index = self.combo_overlay_type.findData(config.overlay.type.value)
+            if index >= 0:
+                self.combo_overlay_type.setCurrentIndex(index)
+
+            if config.overlay.arknights_options:
+                opts = config.overlay.arknights_options
+                self.spin_ark_appear.setValue(opts.appear_time)
+                self.edit_ark_name.setText(opts.operator_name)
+                self.edit_ark_code.setText(opts.operator_code)
+                self.edit_ark_barcode.setText(opts.barcode_text)
+                self.edit_ark_aux.setPlainText(opts.aux_text)
+                self.edit_ark_staff.setText(opts.staff_text)
+                self.edit_ark_color.setText(opts.color)
+
+            self._on_overlay_type_changed()
+
+        finally:
+            self._updating = False
+
+    def get_config(self) -> Optional[EPConfig]:
+        """获取配置"""
+        return self._config
+
+    def update_config_from_ui(self):
+        """从UI更新配置"""
+        if self._config is None:
+            return
+
+        # 基本信息
+        self._config.name = self.edit_name.text()
+        self._config.description = self.edit_description.toPlainText()
+        self._config.icon = self.edit_icon.text()
+
+        screen_value = self.combo_screen.currentData()
+        self._config.screen = ScreenType.from_string(screen_value)
+
+        # 循环视频
+        self._config.loop.file = self.edit_loop_file.text()
+
+        # 入场视频
+        self._config.intro.enabled = self.check_intro_enabled.isChecked()
+        self._config.intro.file = self.edit_intro_file.text()
+        self._config.intro.duration = self.spin_intro_duration.value()
+
+        # 过渡效果 - 进入
+        trans_in_type = TransitionType.from_string(self.combo_trans_in_type.currentData())
+        if trans_in_type != TransitionType.NONE:
+            self._config.transition_in = Transition(
+                type=trans_in_type,
+                options=TransitionOptions(
+                    duration=self.spin_trans_in_duration.value(),
+                    background_color=self.edit_trans_in_color.text()
+                )
+            )
+        else:
+            self._config.transition_in = Transition()
+
+        # 过渡效果 - 循环
+        trans_loop_type = TransitionType.from_string(self.combo_trans_loop_type.currentData())
+        if trans_loop_type != TransitionType.NONE:
+            self._config.transition_loop = Transition(
+                type=trans_loop_type,
+                options=TransitionOptions(
+                    duration=self.spin_trans_loop_duration.value(),
+                    background_color=self.edit_trans_loop_color.text()
+                )
+            )
+        else:
+            self._config.transition_loop = Transition()
+
+        # 叠加UI
+        overlay_type = OverlayType.from_string(self.combo_overlay_type.currentData())
+        if overlay_type == OverlayType.ARKNIGHTS:
+            self._config.overlay = Overlay(
+                type=overlay_type,
+                arknights_options=ArknightsOverlayOptions(
+                    appear_time=self.spin_ark_appear.value(),
+                    operator_name=self.edit_ark_name.text(),
+                    operator_code=self.edit_ark_code.text(),
+                    barcode_text=self.edit_ark_barcode.text(),
+                    aux_text=self.edit_ark_aux.toPlainText(),
+                    staff_text=self.edit_ark_staff.text(),
+                    color=self.edit_ark_color.text()
+                )
+            )
+        else:
+            self._config.overlay = Overlay(type=overlay_type)
+
+    def _on_config_changed(self):
+        """配置变更处理"""
+        if self._updating:
+            return
+        self.update_config_from_ui()
+        self.config_changed.emit()
+
+    def _on_new_uuid(self):
+        """生成新UUID"""
+        if self._config:
+            self._config.generate_new_uuid()
+            self.edit_uuid.setText(self._config.uuid)
+            self.config_changed.emit()
+
+    def _on_intro_duration_changed(self, value: int):
+        """入场时长变更"""
+        seconds = microseconds_to_seconds(value)
+        self.label_intro_seconds.setText(f"= {seconds:.1f} 秒")
+        self._on_config_changed()
+
+    def _on_overlay_type_changed(self):
+        """叠加类型变更"""
+        overlay_type = self.combo_overlay_type.currentData()
+        self.group_arknights.setVisible(overlay_type == "arknights")
+        self._on_config_changed()
+
+    def _browse_icon(self):
+        """浏览图标文件"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择图标", self._base_dir,
+            "图片文件 (*.png *.jpg *.jpeg)"
+        )
+        if path:
+            self.edit_icon.setText(path)
+
+    def _browse_loop(self):
+        """浏览循环视频"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择循环视频", self._base_dir,
+            "视频文件 (*.mp4 *.avi *.mov)"
+        )
+        if path:
+            self.edit_loop_file.setText(path)
+            # 发送视频选择信号用于预览
+            self.video_file_selected.emit(path)
+
+    def _browse_intro(self):
+        """浏览入场视频"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择入场视频", self._base_dir,
+            "视频文件 (*.mp4 *.avi *.mov)"
+        )
+        if path:
+            self.edit_intro_file.setText(path)
+
+    def _pick_color(self, edit: QLineEdit):
+        """选择颜色"""
+        from PyQt6.QtGui import QColor as QC
+        current = QC(edit.text())
+        color = QColorDialog.getColor(current, self, "选择颜色")
+        if color.isValid():
+            edit.setText(color.name())
