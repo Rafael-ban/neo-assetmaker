@@ -1,4 +1,4 @@
-name: Build Windows Executable
+name: Build and Release
 
 on:
   push:
@@ -40,6 +40,23 @@ jobs:
       - name: Build with Nuitka
         run: python build.py
 
+      - name: Get version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Package release files
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mkdir release
+          Copy-Item dist\*.exe release\
+          Copy-Item ffmpeg.exe release\
+          Copy-Item README.md release\
+          Copy-Item -Recurse resources release\
+          Compress-Archive -Path release\* -DestinationPath "ArknightsPassMaker-${{ steps.version.outputs.VERSION }}-win64.zip"
+        shell: pwsh
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -48,7 +65,13 @@ jobs:
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: |
+            dist/*.exe
+            ArknightsPassMaker-*.zip
           generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-alpha') || contains(github.ref, '-rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
