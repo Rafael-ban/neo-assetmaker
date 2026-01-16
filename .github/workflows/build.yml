@@ -10,11 +10,55 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # ========== Rust 模拟器编译 ==========
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "simulator -> target"
+
+      - name: Cache FFmpeg SDK
+        id: cache-ffmpeg-sdk
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg-sdk
+          key: ffmpeg-sdk-win64-7.1
+
+      - name: Download FFmpeg SDK (for Rust build)
+        if: steps.cache-ffmpeg-sdk.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z"
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg-sdk.7z
+          7z x ffmpeg-sdk.7z -offmpeg-temp
+          New-Item -ItemType Directory -Force -Path ffmpeg-sdk
+          Move-Item -Path ffmpeg-temp/ffmpeg-*/* -Destination ffmpeg-sdk/
+          Remove-Item -Recurse -Force ffmpeg-temp, ffmpeg-sdk.7z
+
+      - name: Build Rust Simulator
+        shell: pwsh
+        run: |
+          $env:FFMPEG_DIR = "${{ github.workspace }}\ffmpeg-sdk"
+          Write-Host "FFMPEG_DIR: $env:FFMPEG_DIR"
+          cd simulator
+          cargo build --release
+          if (Test-Path "target\release\arknights_pass_simulator.exe") {
+            Write-Host "Simulator built successfully"
+          } else {
+            Write-Error "Simulator build failed!"
+            exit 1
+          }
+
+      # ========== Python 应用编译 ==========
 
       - name: Set up Python
         uses: actions/setup-python@v5

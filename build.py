@@ -150,6 +150,23 @@ def run_cxfreeze():
     if os.path.exists("ffprobe.exe"):
         include_files.append(("ffprobe.exe", "ffprobe.exe"))
 
+    # 添加 Rust 模拟器
+    simulator_exe = os.path.join("simulator", "target", "release", "arknights_pass_simulator.exe")
+    if os.path.exists(simulator_exe):
+        # 创建目标目录结构
+        target_path = os.path.join("simulator", "target", "release", "arknights_pass_simulator.exe")
+        include_files.append((simulator_exe, target_path))
+        print(f"  Including simulator: {simulator_exe}")
+
+    # 添加 FFmpeg DLL（模拟器运行时依赖）
+    ffmpeg_sdk_bin = os.path.join("ffmpeg-sdk", "bin")
+    if os.path.exists(ffmpeg_sdk_bin):
+        for dll in os.listdir(ffmpeg_sdk_bin):
+            if dll.endswith(".dll"):
+                src = os.path.join(ffmpeg_sdk_bin, dll)
+                include_files.append((src, dll))
+                print(f"  Including FFmpeg DLL: {dll}")
+
     pyqt6_plugins = os.path.join(site_packages, "PyQt6", "Qt6", "plugins")
     if os.path.exists(pyqt6_plugins):
         for plugin in ["platforms", "imageformats", "styles"]:
