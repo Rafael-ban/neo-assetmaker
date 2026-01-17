@@ -2,6 +2,7 @@
 主窗口 - 三栏布局
 """
 import os
+import sys
 import logging
 from typing import Optional
 
@@ -484,8 +485,16 @@ class MainWindow(QMainWindow):
             return
 
         # 查找 Rust 模拟器可执行文件
+        # 检测是否为打包后的环境
+        if getattr(sys, 'frozen', False):
+            # 打包后：exe 所在目录是安装目录
+            app_dir = os.path.dirname(sys.executable)
+        else:
+            # 开发环境：从 gui 目录向上找到项目根目录
+            app_dir = os.path.dirname(os.path.dirname(__file__))
+
         simulator_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
+            app_dir,
             "simulator", "target", "release", "arknights_pass_simulator.exe"
         )
 
