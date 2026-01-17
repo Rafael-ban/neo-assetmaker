@@ -90,6 +90,12 @@ pub struct SimulatorApp {
     /// Transition image raw pixel data (for direct pixel access during transition)
     transition_image_data: Option<(Vec<Color32>, usize, usize)>, // (pixels, width, height)
 
+    /// AK progress bar image texture (from res/ak_bar.png)
+    ak_bar_texture: Option<egui::TextureHandle>,
+
+    /// Top-right arrow image texture (from res/top_right_arrow.png)
+    top_right_arrow_texture: Option<egui::TextureHandle>,
+
     /// Whether textures have been loaded for current config
     textures_loaded: bool,
 }
@@ -188,6 +194,8 @@ impl SimulatorApp {
             image_overlay_texture: None,
             transition_image_texture: None,
             transition_image_data: None,
+            ak_bar_texture: None,
+            top_right_arrow_texture: None,
             textures_loaded: false,
         };
 
@@ -232,6 +240,8 @@ impl SimulatorApp {
         self.image_overlay_texture = None;
         self.transition_image_texture = None;
         self.transition_image_data = None;
+        self.ak_bar_texture = None;
+        self.top_right_arrow_texture = None;
         self.textures_loaded = false;
 
         info!("Configuration loaded");
@@ -879,6 +889,50 @@ impl SimulatorApp {
             }
         }
 
+        // Load ak_bar.png from resources/data directory
+        if self.ak_bar_texture.is_none() {
+            let ak_bar_path = self.app_dir.join("resources/data/ak_bar.png");
+            if let Ok(img) = image::open(&ak_bar_path) {
+                let rgba = img.to_rgba8();
+                let size = [rgba.width() as usize, rgba.height() as usize];
+                let pixels: Vec<Color32> = rgba
+                    .pixels()
+                    .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
+                    .collect();
+                let color_image = egui::ColorImage { size, pixels };
+                self.ak_bar_texture = Some(ctx.load_texture(
+                    "ak_bar",
+                    color_image,
+                    egui::TextureOptions::LINEAR,
+                ));
+                info!("Loaded ak_bar.png: {}", ak_bar_path.display());
+            } else {
+                warn!("Failed to load ak_bar.png: {}", ak_bar_path.display());
+            }
+        }
+
+        // Load top_right_arrow.png from resources/data directory
+        if self.top_right_arrow_texture.is_none() {
+            let arrow_path = self.app_dir.join("resources/data/top_right_arrow.png");
+            if let Ok(img) = image::open(&arrow_path) {
+                let rgba = img.to_rgba8();
+                let size = [rgba.width() as usize, rgba.height() as usize];
+                let pixels: Vec<Color32> = rgba
+                    .pixels()
+                    .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
+                    .collect();
+                let color_image = egui::ColorImage { size, pixels };
+                self.top_right_arrow_texture = Some(ctx.load_texture(
+                    "top_right_arrow",
+                    color_image,
+                    egui::TextureOptions::LINEAR,
+                ));
+                info!("Loaded top_right_arrow.png: {}", arrow_path.display());
+            } else {
+                warn!("Failed to load top_right_arrow.png: {}", arrow_path.display());
+            }
+        }
+
         // Load image overlay texture if type is Image
         if let Some(image_opts) = self.get_image_overlay_options() {
             if !image_opts.image.is_empty() && self.image_overlay_texture.is_none() {
@@ -1362,12 +1416,39 @@ impl SimulatorApp {
         let anim = &self.state.animation;
         let offsets = &self.firmware_config.layout.offsets;
 
-        if anim.ak_bar_width > 0 {
-            let y = offsets.ak_bar_y as f32 * scale_y + image_rect.min.y + y_offset;
-            let width = anim.ak_bar_width as f32 * scale_x;
-            let bar_height = 3.0 * scale_y; // 3 pixels thick
+        if anim.ak_bar_width == 0 {
+            return;
+        }
 
-            if y >= image_rect.min.y && y + bar_height <= image_rect.max.y {
+        let y = offsets.ak_bar_y as f32 * scale_y + image_rect.min.y + y_offset;
+        let width = anim.ak_bar_width as f32 * scale_x;
+
+        if y < image_rect.min.y || y > image_rect.max.y {
+            return;
+        }
+
+        // Use AK bar image texture if available
+        if let Some(ref ak_bar_texture) = self.ak_bar_texture {
+            // ak_bar.png dimensions: 165x12
+            let bar_height = 12.0 * scale_y;
+            let bar_rect = Rect::from_min_size(
+                Pos2::new(btm_info_x, y),
+                egui::vec2(width, bar_height),
+            );
+
+            // UV clipping to implement sweep-in effect
+            // Maximum width is 280 pixels (target), reveal ratio based on current width
+            let reveal_ratio = anim.ak_bar_width as f32 / 280.0;
+            let uv = Rect::from_min_max(
+                Pos2::new(0.0, 0.0),
+                Pos2::new(reveal_ratio.min(1.0), 1.0),
+            );
+
+            painter.image(ak_bar_texture.id(), bar_rect, uv, Color32::WHITE);
+        } else {
+            // Fallback: solid color rectangle
+            let bar_height = 3.0 * scale_y;
+            if y + bar_height <= image_rect.max.y {
                 let bar_rect = Rect::from_min_size(
                     Pos2::new(btm_info_x, y),
                     egui::vec2(width, bar_height),
@@ -1378,7 +1459,7 @@ impl SimulatorApp {
     }
 
     /// Render arrow animation indicator (3 chevrons pointing UP on the right side)
-    /// Uses yellow/gold color to match the reference design
+    /// Uses dark gray color to match C reference design
     /// Per C reference (opinfo.c:553): arrows scroll upward via Y decrement
     fn render_arrow_indicator(
         &self,
@@ -1390,39 +1471,63 @@ impl SimulatorApp {
         _theme_color: Color32,
     ) {
         let anim = &self.state.animation;
-        let offsets = &self.firmware_config.layout.offsets;
 
         // Only show arrows when entry animation is complete
         if !anim.is_entry_complete() {
             return;
         }
 
-        let base_y = offsets.arrow_y as f32 * scale_y + image_rect.min.y + y_offset;
-        let arrow_offset = anim.arrow_y as f32 * scale_y;
+        // Use image texture if available
+        if let Some(ref arrow_texture) = self.top_right_arrow_texture {
+            // Arrow image dimensions: 24x100
+            let arrow_width = 24.0 * scale_x;
+            let arrow_height = 100.0 * scale_y;
+            let arrow_x = image_rect.max.x - 50.0 * scale_x;
+            let arrow_y = image_rect.min.y + 20.0 * scale_y + y_offset;
 
-        // Position on the right side of the screen (inside the yellow gradient area)
-        let x = image_rect.max.x - 40.0 * scale_x;
+            // UV scrolling to implement upward loop animation
+            // anim.arrow_y cycles 0-99, use it as scroll offset
+            let scroll_offset = (anim.arrow_y as f32 / 100.0).fract();
+            let uv = Rect::from_min_max(
+                Pos2::new(0.0, scroll_offset),
+                Pos2::new(1.0, scroll_offset + 1.0),
+            );
 
-        // Draw 3 chevrons pointing UPWARD (^ shape)
-        let chevron_spacing = 12.0 * scale_y;
-        let chevron_size = 8.0 * scale_x;
+            let arrow_rect = Rect::from_min_size(
+                Pos2::new(arrow_x, arrow_y),
+                egui::vec2(arrow_width, arrow_height),
+            );
 
-        // Use yellow/gold color for chevrons (to match the gradient area)
-        let chevron_color = Color32::from_rgb(255, 200, 50);
-        let stroke = Stroke::new(2.0 * scale_x.min(scale_y), chevron_color);
+            painter.image(arrow_texture.id(), arrow_rect, uv, Color32::WHITE);
+        } else {
+            // Fallback: draw programmatic dark gray chevrons
+            let offsets = &self.firmware_config.layout.offsets;
+            let base_y = offsets.arrow_y as f32 * scale_y + image_rect.min.y + y_offset;
+            let arrow_offset = anim.arrow_y as f32 * scale_y;
 
-        for i in 0..3 {
-            let y = base_y + arrow_offset + (i as f32 * chevron_spacing);
+            // Position on the right side of the screen
+            let x = image_rect.max.x - 40.0 * scale_x;
 
-            if y >= image_rect.min.y && y <= image_rect.max.y {
-                // Draw chevron (^ shape pointing UP)
-                // Top vertex points up, left and right vertices are below
-                let left = Pos2::new(x - chevron_size, y + chevron_size);
-                let top = Pos2::new(x, y);
-                let right = Pos2::new(x + chevron_size, y + chevron_size);
+            // Draw 3 chevrons pointing UPWARD (^ shape)
+            let chevron_spacing = 12.0 * scale_y;
+            let chevron_size = 8.0 * scale_x;
 
-                painter.line_segment([left, top], stroke);
-                painter.line_segment([top, right], stroke);
+            // Use dark gray color for chevrons (matching C reference opinfo.c)
+            let chevron_color = Color32::from_rgb(40, 40, 40);
+            let stroke = Stroke::new(2.0 * scale_x.min(scale_y), chevron_color);
+
+            for i in 0..3 {
+                let y = base_y + arrow_offset + (i as f32 * chevron_spacing);
+
+                if y >= image_rect.min.y && y <= image_rect.max.y {
+                    // Draw chevron (^ shape pointing UP)
+                    let left = Pos2::new(x - chevron_size, y + chevron_size);
+                    let top = Pos2::new(x, y);
+                    let right = Pos2::new(x + chevron_size, y + chevron_size);
+
+                    painter.line_segment([left, top], stroke);
+                    painter.line_segment([top, right], stroke);
+                }
             }
         }
     }
