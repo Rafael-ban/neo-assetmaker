@@ -1037,26 +1037,18 @@ impl SimulatorApp {
         let entry_alpha = (anim.entry_progress * 255.0) as u8;
 
         // ============================================
-        // 1. Draw static decoration elements (replaces overlay_template.png)
+        // 1. Draw static decoration from template image
         // ============================================
-
-        // 1.1 Top-left black L-shape decoration
-        self.render_top_left_corner(painter, image_rect, scale_x, scale_y, entry_alpha);
-
-        // 1.2 Top-right gradient + arrows
-        self.render_top_right_gradient(painter, image_rect, scale_x, scale_y, entry_alpha);
-
-        // 1.3 Right side black bar + "RHODES ISLAND" text
-        self.render_right_side_bar(painter, image_rect, scale_x, scale_y, y_offset, entry_alpha);
-
-        // 1.4 Left colorful gradient stripe
-        self.render_left_gradient_stripe(painter, image_rect, scale_x, scale_y, y_offset, entry_alpha);
-
-        // 1.5 Bottom-left light cyan-blue gradient
-        self.render_bottom_left_gradient(painter, image_rect, scale_x, scale_y, y_offset, entry_alpha);
-
-        // 1.6 Bottom-right logo background
-        self.render_logo_background(painter, image_rect, scale_x, scale_y, y_offset, entry_alpha);
+        if let Some(ref texture) = self.overlay_template_texture {
+            // Apply entry animation offset and alpha to the template image
+            let offset_rect = Rect::from_min_size(
+                Pos2::new(image_rect.min.x, image_rect.min.y + y_offset),
+                image_rect.size(),
+            );
+            let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
+            let tint = Color32::from_rgba_unmultiplied(255, 255, 255, entry_alpha);
+            painter.image(texture.id(), offset_rect, uv, tint);
+        }
 
         // ============================================
         // 2. Render dynamic elements
@@ -1437,10 +1429,12 @@ impl SimulatorApp {
 
     // ============================================
     // Static decoration rendering functions
-    // (Replaces overlay_template.png to avoid overlap with dynamic elements)
+    // These functions are no longer used since we now use overlay_template.png
+    // Kept for reference and potential fallback if template image fails to load
     // ============================================
 
     /// Render top-left black L-shape decoration
+    #[allow(dead_code)]
     fn render_top_left_corner(
         &self,
         painter: &egui::Painter,
@@ -1480,7 +1474,8 @@ impl SimulatorApp {
         painter.add(egui::Shape::convex_polygon(points, white, Stroke::NONE));
     }
 
-    /// Render top-right yellow-orange gradient stripes with chevron arrows
+    /// Render top-right black background with gold stripes and dark chevron arrows
+    #[allow(dead_code)]
     fn render_top_right_gradient(
         &self,
         painter: &egui::Painter,
@@ -1489,49 +1484,48 @@ impl SimulatorApp {
         scale_y: f32,
         alpha: u8,
     ) {
-        // Gradient area: X=280-360, Y=48-143 (original template precise values)
-        let base_x = image_rect.min.x + 280.0 * scale_x;
-        let base_y = image_rect.min.y + 48.0 * scale_y;
+        // 1. Black background rectangle (X=280-360, Y=0-145)
+        let bg_rect = Rect::from_min_max(
+            Pos2::new(image_rect.min.x + 280.0 * scale_x, image_rect.min.y),
+            Pos2::new(image_rect.max.x, image_rect.min.y + 145.0 * scale_y),
+        );
+        let black = Color32::from_rgba_unmultiplied(0, 0, 0, alpha);
+        painter.rect_filled(bg_rect, 0.0, black);
 
-        // Define stripes (Y offset, height, width ratio) - simulate original uneven-width stripes
+        // 2. Gold yellow stripes (uniform color #FFD700, starting from right edge)
+        let gold = Color32::from_rgba_unmultiplied(255, 215, 0, alpha);
+
+        // Define stripes (Y offset, height, width) - stripes get shorter from top to bottom
         let stripes: [(f32, f32, f32); 12] = [
-            (0.0, 6.0, 0.95),   // Top thin line
-            (8.0, 8.0, 0.90),
-            (18.0, 10.0, 0.85),
-            (30.0, 8.0, 0.80),
-            (40.0, 12.0, 0.75),
-            (54.0, 10.0, 0.70),
-            (66.0, 8.0, 0.65),
-            (76.0, 10.0, 0.60),
-            (88.0, 8.0, 0.55),
-            (98.0, 6.0, 0.50),
-            (106.0, 6.0, 0.45),
-            (114.0, 4.0, 0.40), // Bottom thin line
+            (0.0, 6.0, 76.0),   // Top stripe - longest
+            (8.0, 8.0, 72.0),
+            (18.0, 10.0, 68.0),
+            (30.0, 8.0, 64.0),
+            (40.0, 12.0, 60.0),
+            (54.0, 10.0, 56.0),
+            (66.0, 8.0, 52.0),
+            (76.0, 10.0, 48.0),
+            (88.0, 8.0, 44.0),
+            (98.0, 6.0, 40.0),
+            (106.0, 6.0, 36.0),
+            (114.0, 4.0, 32.0), // Bottom stripe - shortest
         ];
 
-        for (i, (y_off, height, width_ratio)) in stripes.iter().enumerate() {
-            let y = base_y + y_off * scale_y;
-            let stripe_width = 80.0 * width_ratio * scale_x;
-            let x = image_rect.max.x - stripe_width;
-
-            // Yellow to orange gradient
-            let t = i as f32 / stripes.len() as f32;
-            let r = 255;
-            let g = (230.0 - t * 80.0) as u8; // 230 -> 150
-            let b = (50.0 + t * 30.0) as u8;  // 50 -> 80
-            let color = Color32::from_rgba_unmultiplied(r, g, b, alpha);
+        for (y_off, height, stripe_width) in stripes.iter() {
+            let y = image_rect.min.y + y_off * scale_y;
+            let x = image_rect.max.x - stripe_width * scale_x;
 
             let rect = Rect::from_min_size(
                 Pos2::new(x, y),
-                egui::vec2(stripe_width, height * scale_y),
+                egui::vec2(*stripe_width * scale_x, *height * scale_y),
             );
-            painter.rect_filled(rect, 0.0, color);
+            painter.rect_filled(rect, 0.0, gold);
         }
 
-        // Draw 3 static yellow chevron arrows (inside gradient stripes)
+        // 3. Dark/black chevron arrows (outline style)
         let arrow_x = image_rect.min.x + 320.0 * scale_x;
-        let arrow_color = Color32::from_rgba_unmultiplied(255, 215, 0, alpha); // Gold yellow
-        let stroke = Stroke::new(2.5 * scale_x.min(scale_y), arrow_color);
+        let dark = Color32::from_rgba_unmultiplied(40, 40, 40, alpha); // Dark gray/black
+        let stroke = Stroke::new(2.5 * scale_x.min(scale_y), dark);
         let chevron_size = 10.0;
 
         for i in 0..3 {
@@ -1553,6 +1547,8 @@ impl SimulatorApp {
     }
 
     /// Render right side black vertical bar with "RHODES ISLAND INC." text
+    /// RHODES is yellow (#FFD700), ISLAND INC. is white
+    #[allow(dead_code)]
     fn render_right_side_bar(
         &self,
         painter: &egui::Painter,
@@ -1580,12 +1576,13 @@ impl SimulatorApp {
             let bar_color = Color32::from_rgba_unmultiplied(0, 0, 0, alpha);
             painter.rect_filled(bar_rect, 0.0, bar_color);
 
-            // "RHODES ISLAND INC." vertical text
-            let text_color = Color32::from_rgba_unmultiplied(255, 255, 255, alpha);
+            // Text colors
+            let yellow = Color32::from_rgba_unmultiplied(255, 215, 0, alpha); // #FFD700 for RHODES
+            let white = Color32::from_rgba_unmultiplied(255, 255, 255, alpha);
             let text_x = bar_x + bar_width / 2.0;
             let text_start_y = clamped_start + 30.0 * scale_y;
 
-            // RHODES (bold - simulated with slightly larger font)
+            // RHODES (yellow, bold - simulated with slightly larger font)
             let rhodes = "RHODES";
             for (i, ch) in rhodes.chars().enumerate() {
                 let char_y = text_start_y + i as f32 * 18.0 * scale_y;
@@ -1595,12 +1592,12 @@ impl SimulatorApp {
                         Align2::CENTER_TOP,
                         ch.to_string(),
                         FontId::proportional(14.0 * scale_y), // Larger for bold effect
-                        text_color,
+                        yellow, // RHODES is yellow
                     );
                 }
             }
 
-            // ISLAND INC. (normal)
+            // ISLAND INC. (white, normal)
             let island_inc = " ISLAND INC.";
             let island_start_y = text_start_y + rhodes.len() as f32 * 18.0 * scale_y;
             for (i, ch) in island_inc.chars().enumerate() {
@@ -1611,7 +1608,7 @@ impl SimulatorApp {
                         Align2::CENTER_TOP,
                         ch.to_string(),
                         FontId::proportional(10.0 * scale_y),
-                        text_color,
+                        white, // ISLAND INC. is white
                     );
                 }
             }
@@ -1619,6 +1616,7 @@ impl SimulatorApp {
     }
 
     /// Render left colorful gradient stripe (yellow → orange → purple → blue → cyan)
+    #[allow(dead_code)]
     fn render_left_gradient_stripe(
         &self,
         painter: &egui::Painter,
@@ -1689,6 +1687,7 @@ impl SimulatorApp {
     }
 
     /// Render bottom-left light cyan-blue gradient
+    #[allow(dead_code)]
     fn render_bottom_left_gradient(
         &self,
         painter: &egui::Painter,
@@ -1717,6 +1716,7 @@ impl SimulatorApp {
     }
 
     /// Render bottom-right logo background with diagonal cut
+    #[allow(dead_code)]
     fn render_logo_background(
         &self,
         painter: &egui::Painter,
