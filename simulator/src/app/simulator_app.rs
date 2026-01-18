@@ -1651,6 +1651,7 @@ impl SimulatorApp {
 
         // Use image texture if available
         if let Some(ref arrow_texture) = self.top_right_arrow_texture {
+            // Arrow image dimensions: 24x100, positioned at Y=100 per opinfo.c reference
             let arrow_width = 24.0 * scale_x;
             let arrow_height = 100.0 * scale_y;
             let arrow_x = image_rect.max.x - arrow_width;  // Right-aligned
