@@ -265,8 +265,9 @@ impl VideoDecoder {
             let mut src_frame = VideoFrame::new(Pixel::RGB24, rotated_w, rotated_h);
 
             // Copy data into the frame
-            let frame_data = src_frame.data_mut(0);
+            // Get stride first (immutable borrow), then get mutable data
             let frame_stride = src_frame.stride(0);
+            let frame_data = src_frame.data_mut(0);
 
             for y in 0..rotated_h as usize {
                 let src_start = y * (rotated_w as usize) * 3;
