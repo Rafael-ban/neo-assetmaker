@@ -161,6 +161,11 @@ class MainWindow(QMainWindow):
         self.action_batch_convert = QAction("批量转换老素材(&B)...", self)
         tools_menu.addAction(self.action_batch_convert)
 
+        tools_menu.addSeparator()
+
+        self.action_flasher = QAction("固件烧录(&R)...", self)
+        tools_menu.addAction(self.action_flasher)
+
         # 帮助菜单
         help_menu = menubar.addMenu("帮助(&H)")
 
@@ -184,6 +189,7 @@ class MainWindow(QMainWindow):
         self.action_validate.triggered.connect(self._on_validate)
         self.action_export.triggered.connect(self._on_export)
         self.action_batch_convert.triggered.connect(self._on_batch_convert)
+        self.action_flasher.triggered.connect(self._on_flasher)
         self.action_shortcuts.triggered.connect(self._on_shortcuts)
         self.action_about.triggered.connect(self._on_about)
 
@@ -659,6 +665,41 @@ class MainWindow(QMainWindow):
             logger.error(f"批量转换失败: {e}")
             QMessageBox.critical(self, "错误", f"转换失败:\n{e}")
             self.status_bar.showMessage("转换失败")
+
+    def _on_flasher(self):
+        """启动固件烧录工具"""
+        import subprocess
+
+        # 定位 epass_flasher 目录
+        app_dir = os.path.dirname(os.path.dirname(__file__))
+        flasher_dir = os.path.join(app_dir, "epass_flasher")
+        flasher_script = os.path.join(flasher_dir, "main.py")
+
+        if not os.path.exists(flasher_script):
+            QMessageBox.critical(
+                self, "错误",
+                f"烧录工具未找到\n\n路径: {flasher_script}"
+            )
+            return
+
+        try:
+            if sys.platform == 'win32':
+                # 使用 CREATE_NEW_CONSOLE 在新终端窗口中启动
+                subprocess.Popen(
+                    [sys.executable, flasher_script],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    cwd=flasher_dir
+                )
+            else:
+                QMessageBox.warning(self, "不支持", "烧录工具目前仅支持 Windows")
+                return
+
+            self.status_bar.showMessage("烧录工具已启动")
+            logger.info(f"烧录工具已启动: {flasher_script}")
+
+        except Exception as e:
+            logger.error(f"启动烧录工具失败: {e}")
+            QMessageBox.critical(self, "错误", f"启动烧录工具失败:\n{e}")
 
     def _ask_overlay_mode(self):
         """询问用户overlay处理模式"""
