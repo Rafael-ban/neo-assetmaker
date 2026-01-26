@@ -19,7 +19,3 @@ dependencies = [
 dev = [
     "cx_Freeze>=6.15.0",
 ]
-
-[[tool.uv.index]]
-url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
-default = true
