@@ -114,10 +114,10 @@ def build_epass_flasher():
         print("  Warning: uv not found, skipping epass_flasher build")
         return False
 
-    # 同步依赖
+    # 同步依赖（使用官方 PyPI，覆盖 epass_flasher 配置的清华镜像）
     print("  Syncing dependencies...")
     result = subprocess.run(
-        ["uv", "sync"],
+        ["uv", "sync", "--default-index", "https://pypi.org/simple", "--upgrade"],
         cwd=flasher_dir
     )
     if result.returncode != 0:
