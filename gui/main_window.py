@@ -563,6 +563,10 @@ class MainWindow(QMainWindow):
             rotation = self.video_preview.get_rotation()
 
             # 启动 Rust 模拟器
+            popen_kwargs = {}
+            if sys.platform == 'win32':
+                popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+
             subprocess.Popen([
                 simulator_path,
                 "--config", config_path,
@@ -570,7 +574,7 @@ class MainWindow(QMainWindow):
                 "--app-dir", app_dir,
                 "--cropbox", f"{cropbox[0]},{cropbox[1]},{cropbox[2]},{cropbox[3]}",
                 "--rotation", str(rotation)
-            ])
+            ], **popen_kwargs)
 
             logger.info(f"模拟器已启动: {simulator_path}")
 
@@ -650,7 +654,7 @@ class MainWindow(QMainWindow):
             f"<h3>{APP_NAME}</h3>"
             f"<p>版本: {APP_VERSION}</p>"
             f"<p>明日方舟通行证素材制作器</p>"
-            f"<p>by Rafael_ban</p>"
+            f"<p>作者: Rafael_ban & 初微弦音</p>"
         )
 
     def _on_check_update(self):
