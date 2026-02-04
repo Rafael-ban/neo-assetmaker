@@ -481,8 +481,8 @@ class ConfigPanel(QWidget):
         # 视频配置
         self.edit_loop_file.textChanged.connect(self._on_config_changed)
         self.btn_browse_loop.clicked.connect(lambda: self._browse_loop())
-        self.radio_loop_video.toggled.connect(lambda: self._on_loop_mode_changed())
-        self.radio_loop_image.toggled.connect(lambda: self._on_loop_mode_changed())
+        # 使用 buttonClicked 信号避免 toggled 触发两次的问题
+        self.loop_mode_group.buttonClicked.connect(self._on_loop_mode_changed)
         self.check_intro_enabled.stateChanged.connect(self._on_config_changed)
         self.edit_intro_file.textChanged.connect(self._on_config_changed)
         self.btn_browse_intro.clicked.connect(lambda: self._browse_intro())
@@ -774,8 +774,12 @@ class ConfigPanel(QWidget):
             else:
                 self.video_file_selected.emit(path)  # 视频模式
 
-    def _on_loop_mode_changed(self):
-        """循环模式变更"""
+    def _on_loop_mode_changed(self, button=None):
+        """循环模式变更
+
+        Args:
+            button: 被点击的按钮（来自 QButtonGroup.buttonClicked 信号，可选）
+        """
         is_image = self.radio_loop_image.isChecked()
         if is_image:
             self.edit_loop_file.setPlaceholderText("loop.png")
