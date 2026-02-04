@@ -38,13 +38,22 @@ jobs:
         id: check-change
         run: |
           CURRENT_VERSION=$(grep -oP '### v\K[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1)
-          PREV_VERSION=$(git show HEAD~1:README.md 2>/dev/null | grep -oP '### v\K[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
-          if [ "$CURRENT_VERSION" != "$PREV_VERSION" ] && [ -n "$CURRENT_VERSION" ]; then
+
+          # 获取最新的 tag 版本号（而不是上一次提交）
+          # 参考: https://git-scm.com/docs/git-describe
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          LATEST_TAG_VERSION=${LATEST_TAG#v}  # 去掉 v 前缀
+
+          echo "Current version in README: $CURRENT_VERSION"
+          echo "Latest tag version: $LATEST_TAG_VERSION"
+
+          if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "$LATEST_TAG_VERSION" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Version changed: $PREV_VERSION -> $CURRENT_VERSION"
+            echo "Version changed: $LATEST_TAG_VERSION -> $CURRENT_VERSION"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "Version not changed (both are $CURRENT_VERSION)"
+            echo "Version not changed (current: $CURRENT_VERSION, latest tag: $LATEST_TAG_VERSION)"
           fi
 
       - name: Check if tag exists
