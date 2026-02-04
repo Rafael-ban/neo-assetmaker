@@ -12,7 +12,6 @@ Arknights Pass Material Maker - 用于制作明日方舟电子通行证2.0素材
 - 视频预览与裁剪
 - 时间轴控制
 - 配置验证
-- 老素材格式批量转换
 
 ## 系统要求
 
@@ -59,7 +58,6 @@ python main.py
 - Pillow >= 10.0.0 - 图片处理
 - numpy >= 1.24.0 - 数组运算
 - jsonschema >= 4.17.0 - JSON验证
-- easyocr >= 1.7.0 - OCR文字识别（用于识别干员名称）
 - thefuzz >= 0.22.0 - 模糊字符串匹配
 - python-Levenshtein >= 0.25.0 - 加速模糊匹配
 
@@ -101,19 +99,6 @@ python main.py
 - 类型: none, arknights, image
 - 明日方舟模板: 干员名称、代号、条码等
 - 图片叠加: 自定义叠加图片
-
-### 老素材转换
-
-工具 -> 批量转换老素材
-
-支持将老版本素材格式（epconfig.txt + logo.argb + overlay.argb + loop.mp4 + intro.mp4）转换为新格式。
-
-老素材文件结构：
-- loop.mp4 循环播放的视频（必选），384x640，h.264，颠倒180度。实际显示的是360x640
-- overlay.argb：干员信息的UI叠层图片（可选，不存在就不显示），360x640，按bgra格式给出，颠倒180度。
-- intro.mp4 入场视频（可选，存在则先播8s入场动画，再切换到循环播放视频），384x640，h.264，颠倒180度。实际显示的是360x640
-- logo.argb：过场显示的图片。（可选，不存在则显示“罗德岛“logo），256x256，按bgra格式给出，X轴翻转。
-- epconfig.txt 配置文件（可选）
 
 ## 配置文件格式
 
@@ -175,16 +160,16 @@ arknights_pass_maker/
 │   ├── video_processor.py # 视频处理
 │   ├── image_processor.py # 图片处理
 │   ├── export_service.py  # 导出服务
-│   ├── operator_lookup.py # 干员信息查询 (v1.0.1)
-│   ├── ocr_service.py     # OCR识别服务 (v1.0.1)
+│   ├── operator_lookup.py # 干员信息查询
+│   ├── update_service.py  # 更新检查服务
 │   └── overlay_renderer.py # 叠加层渲染器
 ├── gui/                   # 图形界面
 │   ├── main_window.py     # 主窗口
 │   ├── dialogs/           # 对话框
 │   │   ├── export_progress_dialog.py  # 导出进度
-│   │   ├── operator_confirm_dialog.py # 干员确认 (v1.0.1)
 │   │   ├── welcome_dialog.py          # 欢迎对话框
-│   │   └── shortcuts_dialog.py        # 快捷键帮助
+│   │   ├── shortcuts_dialog.py        # 快捷键帮助
+│   │   └── update_dialog.py           # 更新对话框
 │   └── widgets/           # UI组件
 │       ├── config_panel.py    # 配置面板
 │       ├── video_preview.py   # 视频预览
@@ -261,10 +246,6 @@ arknights_pass_maker/
 - 修复 Python 预览定时器精度问题（使用 round() 替代 int()）
 - 修复 ImageOverlay 默认显示时间过短导致一闪而过的问题（duration 默认值改为 0，表示无限显示）
 - 修复 Rust 模拟器视频播放速度不正确的问题（添加帧同步机制，尊重视频原始 FPS）
-
-### v1.5.6
-- 更改了干员素材的视频导出参数
-- 修复了素材制作中点击取消按键导致的卡死问题
 
 ### v1.5.5
 

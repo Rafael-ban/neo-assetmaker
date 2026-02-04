@@ -232,16 +232,18 @@ def run_cxfreeze(skip_flasher=False):
     packages = [
         "PyQt6", "PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtWidgets",
         "cv2", "PIL", "numpy", "jsonschema", "thefuzz",
-        "easyocr", "torch", "logging", "json", "uuid", "dataclasses",
+        "logging", "json", "uuid", "dataclasses",
     ]
 
     includes = [
         "config", "config.constants", "config.epconfig",
         "core", "core.validator", "core.video_processor", "core.image_processor",
         "core.export_service", "core.overlay_renderer",
-        "core.operator_lookup", "core.ocr_service",
-        "gui", "gui.main_window", "gui.dialogs", "gui.dialogs.export_progress_dialog",
-        "gui.dialogs.operator_confirm_dialog", "gui.widgets", "gui.widgets.config_panel",
+        "core.operator_lookup", "core.update_service",
+        "gui", "gui.main_window", "gui.dialogs",
+        "gui.dialogs.export_progress_dialog", "gui.dialogs.welcome_dialog",
+        "gui.dialogs.shortcuts_dialog", "gui.dialogs.update_dialog",
+        "gui.widgets", "gui.widgets.config_panel",
         "gui.widgets.video_preview", "gui.widgets.timeline", "gui.widgets.json_preview",
         "utils", "utils.logger", "utils.file_utils", "utils.color_utils",
     ]
